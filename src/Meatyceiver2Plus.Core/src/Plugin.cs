@@ -14,19 +14,12 @@ namespace Meatyceiver2Plus
     [BepInProcess("h3vr.exe")]
     public class Plugin : BaseUnityPlugin
     {
-        [FormerlySerializedAs("RandomVar")] public Random randomVar;
-
-        
-        public readonly ConfigEntry<bool> EnableConsoleDebugging;
-        
-        
         internal static Plugin Instance { get; private set; }
 
         //Bespoke Failures
 
         private readonly ConfigEntry<float> _breakActionFte;
         private readonly ConfigEntry<float> _breakActionFteMultAffect;
-        private ConfigEntry<float> _dfRate;
         private readonly ConfigEntry<bool> _enableAmmunitionFailures;
         private readonly ConfigEntry<bool> _enableBrokenFirearmFailures;
 
@@ -41,8 +34,6 @@ namespace Meatyceiver2Plus
         private readonly ConfigEntry<float> _fteRate;
 
         //Failures - Firearms
-
-        private ConfigEntry<float> _ftfRate;
         private readonly ConfigEntry<float> _ftlSlide;
 
         //Multipliers
@@ -65,6 +56,8 @@ namespace Meatyceiver2Plus
         private readonly ConfigEntry<float> _slamfireRate;
         private readonly ConfigEntry<float> _stovepipeLerp;
 
+        private Random _randomVar;
+
         public Plugin()
         {
             Logger.LogInfo("Meatyceiver2 started!");
@@ -75,8 +68,6 @@ namespace Meatyceiver2Plus
                 Strings.EnableFirearmFailures_description);
             _enableBrokenFirearmFailures = Config.Bind(Strings.GeneralSettings, Strings.EnableBrokenFirearmFailures_key,
                 true, Strings.EnableBrokenFirearmFailures_description);
-            EnableConsoleDebugging = Config.Bind(Strings.GeneralSettings, Strings.EnableConsoleDebugging_key, false,
-                Strings.EnableConsoleDebugging_description);
 
             _generalMult = Config.Bind(Strings.GeneralMultipliers_section, Strings.GeneralMultipliers_key, 1f,
                 Strings.GeneralMultipliers_description);
@@ -90,19 +81,12 @@ namespace Meatyceiver2Plus
                 Strings.MinRoundCount_description);
             _magUnreliabilityGenMultAffect = Config.Bind(Strings.MagUnreliability_section,
                 Strings.MagUnreliabilityMult_key, 0.5f, Strings.MagUnreliabilityMult_description);
-
-            //enableLongTermBreakdown = Config.Bind(Strings.LongTermBreak_section, Strings.LongTermBreak_key, true, Strings.LongTermBreak_description);
-
             _lpsFailureRate = Config.Bind(Strings.AmmoFailures_section, Strings.LPSRate_key, 0.25f,
                 Strings.ValidInput_float);
             Config.Bind(Strings.AmmoFailures_section, Strings.HangFireRate_key, 0.1f,
                 Strings.ValidInput_float);
-
-            _ftfRate = Config.Bind(Strings.FirearmFailures_section, Strings.FTFRate_key, 0.25f,
-                Strings.ValidInput_float);
             _fteRate = Config.Bind(Strings.FirearmFailures_section, Strings.FTERate_key, 0.15f,
                 Strings.ValidInput_float);
-            _dfRate = Config.Bind(Strings.FirearmFailures_section, Strings.DFRate_key, 0.15f, Strings.ValidInput_float);
             Config.Bind(Strings.FirearmFailures_section, Strings.StovepipeRate_key, 0.1f,
                 Strings.ValidInput_float);
             _stovepipeLerp = Config.Bind(Strings.FirearmFailures_section, Strings.StovepipeLerp_key, 0.5f,
@@ -123,7 +107,7 @@ namespace Meatyceiver2Plus
 
 
             Harmony.CreateAndPatchAll(typeof(Plugin));
-            randomVar = new Random();
+            _randomVar = new Random();
 
             Instance = this;
         }
@@ -135,13 +119,10 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool LightPrimerStrike(ref bool result, FVRFireArmChamber instance, FVRFireArmRound mRound)
         {
-            const string failureName = "LPS";
             if (!_enableAmmunitionFailures.Value) return true;
-            if (instance.Firearm is Revolver || instance.Firearm is RevolvingShotgun) return true;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _lpsFailureRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
-            //			if (enableConsoleDebugging.Value) { Debug.Log("LPS RNG: " + rand + " to " + LPSFailureRate.Value * generalMult.Value); }
+            if (instance.Firearm is Revolver or RevolvingShotgun) return true;
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _lpsFailureRate.Value * _generalMult.Value;
             if (rand >= chance)
             {
                 if (instance.IsFull && mRound != null && !instance.IsSpent)
@@ -152,10 +133,6 @@ namespace Meatyceiver2Plus
                     return false;
                 }
             }
-            else
-            {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
-            }
 
             result = false;
             return false;
@@ -165,14 +142,11 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool LpsRevolver(Revolver instance)
         {
-            const string failureName = "LPS";
             if (!_enableAmmunitionFailures.Value) return true;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _lpsFailureRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _lpsFailureRate.Value * _generalMult.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 instance.Chambers[instance.CurChamber].IsSpent = false;
                 instance.Chambers[instance.CurChamber].UpdateProxyDisplay();
                 return false;
@@ -185,14 +159,11 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool LpsRevolvingShotgun(RevolvingShotgun instance)
         {
-            const string failureName = "LPS";
             if (!_enableAmmunitionFailures.Value) return true;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _lpsFailureRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _lpsFailureRate.Value * _generalMult.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 instance.Chambers[instance.CurChamber].IsSpent = false;
                 instance.Chambers[instance.CurChamber].UpdateProxyDisplay();
                 return false;
@@ -210,25 +181,22 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool FtfPatch(FVRFireArm instance)
         {
-            const string failureName = "FTF";
             float failureinc = 0;
             if (!_enableFirearmFailures.Value) return true;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
             if (instance.Magazine != null && _enableMagUnreliability.Value)
                 if (!instance.Magazine.IsBeltBox)
                     if (instance.Magazine.m_capacity > _minRoundCount.Value)
                     {
-                        var baseFailureInc = (instance.Magazine.m_capacity - _minRoundCount.Value) *
-                                             _failureIncPerRound.Value;
+                        float baseFailureInc = (instance.Magazine.m_capacity - _minRoundCount.Value) *
+                                               _failureIncPerRound.Value;
                         failureinc = baseFailureInc + (baseFailureInc * _generalMult.Value -
                                                        1 * _magUnreliabilityGenMultAffect.Value);
                     }
 
-            var chance = _hfRate.Value * _generalMult.Value + failureinc;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float chance = _hfRate.Value * _generalMult.Value + failureinc;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 return false;
             }
 
@@ -239,16 +207,13 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool FteEmptyBreakAction(BreakActionWeapon instance, FVRFireArm chamber)
         {
-            const string failureName = "BA FTE";
             if (!_enableFirearmFailures.Value) return true;
             if (chamber.RotationInterpSpeed == 2) return false;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _breakActionFte.Value +
-                         _breakActionFte.Value * (_generalMult.Value - 1) * _breakActionFteMultAffect.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _breakActionFte.Value +
+                           _breakActionFte.Value * (_generalMult.Value - 1) * _breakActionFteMultAffect.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 chamber.RotationInterpSpeed = 2;
                 return false;
             }
@@ -260,7 +225,7 @@ namespace Meatyceiver2Plus
         [HarmonyPostfix]
         private void RevolverUnjamChambers(Revolver instance)
         {
-            var z = instance.transform.InverseTransformDirection(instance.m_hand.Input.VelLinearWorld).z;
+            float z = instance.transform.InverseTransformDirection(instance.m_hand.Input.VelLinearWorld).z;
             if (z > 0f)
                 foreach (var chamber in instance.Chambers)
                     chamber.RotationInterpSpeed = 1;
@@ -277,14 +242,11 @@ namespace Meatyceiver2Plus
                 {
                     if (instance.RotationInterpSpeed == 1)
                     {
-                        string failureName = "Revolver FTE";
-                        var rand = (float) randomVar.Next(0, 10001) / 100;
-                        var chance = _revolverFte.Value +
-                                     _revolverFte.Value * (_generalMult.Value - 1) * _revolverFteGenMultAffect.Value;
-                        Debug.ConsoleDebugging(0, failureName, rand, chance);
+                        float rand = (float) _randomVar.Next(0, 10001) / 100;
+                        float chance = _revolverFte.Value +
+                                       _revolverFte.Value * (_generalMult.Value - 1) * _revolverFteGenMultAffect.Value;
                         if (rand <= chance)
                         {
-                            Debug.ConsoleDebugging(1, failureName, rand, chance);
                             instance.RotationInterpSpeed = 2;
                             return false;
                         }
@@ -294,14 +256,11 @@ namespace Meatyceiver2Plus
                 }
                 case RollingBlock:
                 {
-                    const string failureName = "Rolling block FTE";
-                    var rand = (float) randomVar.Next(0, 10001) / 100;
-                    var chance = _breakActionFte.Value +
-                                 _breakActionFte.Value * (_generalMult.Value - 1) * _breakActionFteMultAffect.Value;
-                    Debug.ConsoleDebugging(0, failureName, rand, chance);
+                    float rand = (float) _randomVar.Next(0, 10001) / 100;
+                    float chance = _breakActionFte.Value +
+                                   _breakActionFte.Value * (_generalMult.Value - 1) * _breakActionFteMultAffect.Value;
                     if (rand <= chance)
                     {
-                        Debug.ConsoleDebugging(1, failureName, rand, chance);
                         return false;
                     }
 
@@ -333,27 +292,15 @@ namespace Meatyceiver2Plus
         [HarmonyPrefix]
         private bool FtePatch(FVRInteractiveObject instance)
         {
-            const string stovePipeFailureName = "Stovepipe";
             if (instance is BoltActionRifle || instance is LeverActionFirearm) return false;
             if (!_enableFirearmFailures.Value) return true;
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _fteRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, stovePipeFailureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _fteRate.Value * _generalMult.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, stovePipeFailureName, rand, chance);
                 instance.RotationInterpSpeed = 2;
                 return false;
             }
-
-//			rand = (float)randomVar.Next(0, 10001) / 100;
-//			chance = stovepipeRate.Value * generalMult.Value;
-//			Debug.ConsoleDebugging(0, FTEfailureName, rand, chance);
-//			if (rand <= chance)
-//			{
-//				Debug.ConsoleDebugging(1, FTEfailureName, rand, chance);
-//				return false;
-//			}
             return true;
         }
 
@@ -371,12 +318,9 @@ namespace Meatyceiver2Plus
             if (instance.RotationInterpSpeed == 2)
             {
                 mSlideZCurrent = mSlideZForward - (mSlideZForward - mSlideZRear) / 2;
-                UnityEngine.Debug.Log("prefix slidez: " + mSlideZCurrent);
-                mCurSlideSpeed = 0;
                 if (instance.CurPos == HandgunSlide.SlidePos.LockedToRear)
                 {
                     instance.RotationInterpSpeed = 1;
-                    UnityEngine.Debug.Log("Stovepipe cleared!");
                 }
             }
 
@@ -388,7 +332,6 @@ namespace Meatyceiver2Plus
         [HarmonyPostfix]
         private void SpHandgunSlideFix(HandgunSlide instance, float mSlideZCurrent, float state)
         {
-            //			if (__instance.RotationInterpSpeed == 2) Debug.Log("prefix slidez: " + __state + " postfix slidez: " + ___m_slideZ_current);
             if (instance.GameObject.transform.localPosition.z >= state && instance.RotationInterpSpeed == 2)
             {
                 var localPosition = instance.GameObject.transform.localPosition;
@@ -405,7 +348,6 @@ namespace Meatyceiver2Plus
         {
             if (instance.Slide.RotationInterpSpeed == 2)
             {
-                UnityEngine.Debug.Log("lerping");
                 mProxy.ProxyRound.transform.localPosition = Vector3.Lerp(
                     instance.Slide.Point_Slide_Forward.transform.position,
                     instance.Slide.Point_Slide_Rear.transform.position, _stovepipeLerp.Value);
@@ -421,12 +363,10 @@ namespace Meatyceiver2Plus
             if (_enableBrokenFirearmFailures.Value)
             {
                 string failureName = "Slam fire";
-                var rand = (float) randomVar.Next(0, 10001) / 100;
-                var chance = _slamfireRate.Value * _generalMult.Value;
-                Debug.ConsoleDebugging(0, failureName, rand, chance);
+                float rand = (float) _randomVar.Next(0, 10001) / 100;
+                float chance = _slamfireRate.Value * _generalMult.Value;
                 if (rand <= chance)
                 {
-                    Debug.ConsoleDebugging(1, failureName, rand, chance);
                     instance.Handgun.DropHammer(false);
                 }
             }
@@ -438,13 +378,10 @@ namespace Meatyceiver2Plus
         {
             if (_enableBrokenFirearmFailures.Value)
             {
-                const string failureName = "Slam fire";
-                var rand = (float) randomVar.Next(0, 10001) / 100;
-                var chance = _slamfireRate.Value * _generalMult.Value;
-                Debug.ConsoleDebugging(0, failureName, rand, chance);
+                float rand = (float) _randomVar.Next(0, 10001) / 100;
+                float chance = _slamfireRate.Value * _generalMult.Value;
                 if (rand <= chance)
                 {
-                    Debug.ConsoleDebugging(1, failureName, rand, chance);
                     instance.Weapon.DropHammer();
                 }
             }
@@ -456,13 +393,10 @@ namespace Meatyceiver2Plus
         private bool HFClosedBolt()
         {
             if (!_enableBrokenFirearmFailures.Value) return true;
-            const string failureName = "Hammer follow";
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _hfRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _hfRate.Value * _generalMult.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 return false;
             }
 
@@ -474,13 +408,10 @@ namespace Meatyceiver2Plus
         private bool HFHandgun(bool isManual)
         {
             if (!_enableBrokenFirearmFailures.Value) return true;
-            const string failureName = "Hammer follow";
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _hfRate.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _hfRate.Value * _generalMult.Value;
             if (rand <= chance && !isManual)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 return false;
             }
 
@@ -492,13 +423,10 @@ namespace Meatyceiver2Plus
         private bool FtlsHandgun()
         {
             if (!_enableBrokenFirearmFailures.Value) return true;
-            const string failureName = "Failure to lock slide";
-            var rand = (float) randomVar.Next(0, 10001) / 100;
-            var chance = _ftlSlide.Value * _generalMult.Value;
-            Debug.ConsoleDebugging(0, failureName, rand, chance);
+            float rand = (float) _randomVar.Next(0, 10001) / 100;
+            float chance = _ftlSlide.Value * _generalMult.Value;
             if (rand <= chance)
             {
-                Debug.ConsoleDebugging(1, failureName, rand, chance);
                 return false;
             }
 
